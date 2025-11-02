@@ -362,13 +362,16 @@
         }
 
         .chapter-header {
-            display: flex;
-            align-items: center;
             padding: 15px;
-            cursor: pointer;
             background: #f9f9f9;
             transition: background 0.3s;
             user-select: none;
+        }
+
+        .chapter-header-top {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
             gap: 12px;
         }
 
@@ -391,6 +394,11 @@
             font-weight: 600;
             color: #333;
             flex: 1;
+        }
+
+        .chapter-actions-row {
+            margin-top: 10px;
+            padding-left: 36px;
         }
 
         .chapter-paragraphs {
@@ -747,6 +755,10 @@
                 const chapterHeader = document.createElement('div');
                 chapterHeader.className = 'chapter-header';
                 
+                // Top row with toggle and title
+                const headerTop = document.createElement('div');
+                headerTop.className = 'chapter-header-top';
+                
                 const toggle = document.createElement('span');
                 toggle.className = 'chapter-toggle';
                 toggle.textContent = '+';
@@ -755,6 +767,13 @@
                 const chapterTitle = document.createElement('div');
                 chapterTitle.className = 'chapter-title';
                 chapterTitle.textContent = chapter.title;
+                
+                headerTop.appendChild(toggle);
+                headerTop.appendChild(chapterTitle);
+                
+                // Actions row for buttons
+                const chapterActionsRow = document.createElement('div');
+                chapterActionsRow.className = 'chapter-actions-row';
                 
                 const chapterActions = document.createElement('div');
                 chapterActions.className = 'chapter-actions';
@@ -791,6 +810,8 @@
                 chapterActions.appendChild(concatenateBtn);
                 chapterActions.appendChild(playAudioBtn);
                 
+                chapterActionsRow.appendChild(chapterActions);
+                
                 // Create progress container
                 const progressContainer = document.createElement('div');
                 progressContainer.className = 'progress-container';
@@ -810,9 +831,8 @@
                 chapterDiv.setAttribute('data-progress-container', '');
                 chapterDiv.appendChild(progressContainer);
                 
-                chapterHeader.appendChild(toggle);
-                chapterHeader.appendChild(chapterTitle);
-                chapterHeader.appendChild(chapterActions);
+                chapterHeader.appendChild(headerTop);
+                chapterHeader.appendChild(chapterActionsRow);
                 
                 // Chapter paragraphs container
                 const paragraphsContainer = document.createElement('div');
@@ -920,13 +940,8 @@
                     paragraphsContainer.appendChild(paraDiv);
                 }
                 
-                // Toggle functionality
-                chapterHeader.addEventListener('click', function(e) {
-                    // Don't toggle if clicking on the generate buttons
-                    if (e.target === generateChapterBtn || e.target === generateParagraphsBtn || e.target.closest('.chapter-actions')) {
-                        return;
-                    }
-                    
+                // Toggle functionality - only trigger on the top row
+                headerTop.addEventListener('click', function(e) {
                     const isExpanded = paragraphsContainer.classList.contains('expanded');
                     
                     if (isExpanded) {
@@ -1348,7 +1363,7 @@
                     body: JSON.stringify({
                         chapter_title: chapter.title,
                         audio_files: audioFiles,
-                        pause_seconds: 2.5
+                        pause_seconds: 1.5
                     })
                 });
                 

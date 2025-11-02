@@ -448,7 +448,7 @@ def read_wav_data(file_path: str, header: dict) -> bytes:
         f.seek(header['data_offset'])
         return f.read(header['data_size'])
 
-def concatenate_wav_files_pure_python(audio_files: list[str], output_path: str, silence_seconds: float = 2.5):
+def concatenate_wav_files_pure_python(audio_files: list[str], output_path: str, silence_seconds: float = 1.5):
     """
     Concatenate multiple WAV files without requiring ffmpeg.
     Assumes all WAV files have the same format.
@@ -666,7 +666,7 @@ def concatenate_audio():
         data = request.json
         chapter_title = data.get('chapter_title', '')
         audio_files = data.get('audio_files', [])
-        pause_seconds = data.get('pause_seconds', 2.5)  # Default 2.5 seconds
+        pause_seconds = data.get('pause_seconds', 1.5)  # Default 1.5 seconds
         
         print(f"Concatenate request: chapter_title={chapter_title}, audio_files={audio_files}, pause_seconds={pause_seconds}")
         
