@@ -398,6 +398,123 @@ def sanitize_filename(filename: str) -> str:
     sanitized = sanitized.strip('. ')
     return sanitized
 
+def read_wav_header(file_path: str) -> dict:
+    """Read WAV file header and return audio parameters."""
+    with open(file_path, 'rb') as f:
+        # Read RIFF header
+        riff_chunk = f.read(12)
+        if riff_chunk[:4] != b'RIFF' or riff_chunk[8:12] != b'WAVE':
+            raise ValueError("Not a valid WAV file")
+        
+        # Read fmt chunk
+        fmt_chunk_id = f.read(4)
+        if fmt_chunk_id != b'fmt ':
+            raise ValueError("Missing fmt chunk")
+        
+        fmt_chunk_size = struct.unpack('<I', f.read(4))[0]
+        fmt_data = f.read(fmt_chunk_size)
+        
+        # Parse fmt data
+        audio_format, num_channels, sample_rate = struct.unpack('<HHI', fmt_data[:8])
+        byte_rate, block_align = struct.unpack('<IH', fmt_data[8:14])
+        bits_per_sample = struct.unpack('<H', fmt_data[14:16])[0] if fmt_chunk_size >= 16 else 16
+        
+        # Find data chunk
+        while True:
+            chunk_id = f.read(4)
+            if chunk_id == b'data':
+                data_size = struct.unpack('<I', f.read(4))[0]
+                data_offset = f.tell()
+                break
+            elif chunk_id == b'':
+                raise ValueError("Missing data chunk")
+            else:
+                chunk_size = struct.unpack('<I', f.read(4))[0]
+                f.seek(chunk_size, 1)
+        
+        return {
+            'num_channels': num_channels,
+            'sample_rate': sample_rate,
+            'bits_per_sample': bits_per_sample,
+            'byte_rate': byte_rate,
+            'block_align': block_align,
+            'data_size': data_size,
+            'data_offset': data_offset
+        }
+
+def read_wav_data(file_path: str, header: dict) -> bytes:
+    """Read audio data from WAV file."""
+    with open(file_path, 'rb') as f:
+        f.seek(header['data_offset'])
+        return f.read(header['data_size'])
+
+def concatenate_wav_files_pure_python(audio_files: list[str], output_path: str, silence_seconds: float = 2.5):
+    """
+    Concatenate multiple WAV files without requiring ffmpeg.
+    Assumes all WAV files have the same format.
+    """
+    if not audio_files:
+        raise ValueError("No audio files provided")
+    
+    # Read first file to get format
+    first_header = read_wav_header(audio_files[0])
+    sample_rate = first_header['sample_rate']
+    bits_per_sample = first_header['bits_per_sample']
+    num_channels = first_header['num_channels']
+    bytes_per_sample = bits_per_sample // 8
+    
+    # Calculate silence duration
+    silence_samples = int(sample_rate * silence_seconds)
+    silence_bytes = silence_samples * num_channels * bytes_per_sample
+    silence_data = b'\x00' * silence_bytes
+    
+    # Read all audio data
+    all_audio_data = []
+    for i, file_path in enumerate(audio_files):
+        header = read_wav_header(file_path)
+        
+        # Verify format matches
+        if header['sample_rate'] != sample_rate or header['bits_per_sample'] != bits_per_sample or header['num_channels'] != num_channels:
+            print(f"Warning: {file_path} has different format, skipping...")
+            continue
+        
+        audio_data = read_wav_data(file_path, header)
+        all_audio_data.append(audio_data)
+        
+        # Add silence between files (except after the last one)
+        if i < len(audio_files) - 1:
+            all_audio_data.append(silence_data)
+    
+    # Combine all audio data
+    combined_data = b''.join(all_audio_data)
+    total_data_size = len(combined_data)
+    
+    # Write WAV file
+    byte_rate = sample_rate * num_channels * bytes_per_sample
+    block_align = num_channels * bytes_per_sample
+    chunk_size = 36 + total_data_size
+    
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        chunk_size,
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,
+        num_channels,
+        sample_rate,
+        byte_rate,
+        block_align,
+        bits_per_sample,
+        b"data",
+        total_data_size
+    )
+    
+    with open(output_path, 'wb') as f:
+        f.write(header)
+        f.write(combined_data)
+
 @app.route('/outputs/<filename>')
 def serve_audio(filename):
     """Serve audio files from the outputs directory."""
@@ -545,10 +662,6 @@ def generate_paragraphs_endpoint():
 @app.route('/concatenate-audio', methods=['POST'])
 def concatenate_audio():
     """Concatenate multiple audio files into one with pauses."""
-    if not PYDUB_AVAILABLE:
-        print("ERROR: PYDUB_AVAILABLE is False, returning error to client")
-        return jsonify({'error': 'pydub not installed. Please run: pip install pydub'}), 500
-    
     try:
         data = request.json
         chapter_title = data.get('chapter_title', '')
@@ -564,45 +677,64 @@ def concatenate_audio():
         if not isinstance(audio_files, list):
             return jsonify({'error': 'audio_files must be a list'}), 400
         
-        # Load all audio files
-        combined_audio = None
-        pause_ms = int(pause_seconds * 1000)  # Convert to milliseconds
-        
-        for i, filename in enumerate(audio_files):
-            file_path = os.path.join(OUTPUT_DIR, filename)
-            if not os.path.exists(file_path):
-                print(f"Warning: File not found: {file_path}, skipping...")
-                continue
-            
-            try:
-                audio = AudioSegment.from_wav(file_path)
-                
-                if combined_audio is None:
-                    combined_audio = audio
-                else:
-                    # Add pause before this audio
-                    silence = AudioSegment.silent(duration=pause_ms)
-                    combined_audio = combined_audio + silence + audio
-                
-                print(f"Added audio file {i+1}/{len(audio_files)}: {filename}")
-            except Exception as e:
-                print(f"Error loading audio file {filename}: {e}")
-                continue
-        
-        if combined_audio is None:
-            return jsonify({'error': 'No valid audio files found to concatenate'}), 400
-        
         # Save concatenated audio
         safe_title = sanitize_filename(chapter_title)
         output_filename = f"{safe_title}_cat.wav"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
-        combined_audio.export(output_path, format="wav")
-        print(f"Concatenated audio saved to: {output_path}")
+        # Try to use pydub first (if available and ffmpeg is installed)
+        if PYDUB_AVAILABLE:
+            try:
+                combined_audio = None
+                pause_ms = int(pause_seconds * 1000)
+                
+                for i, filename in enumerate(audio_files):
+                    file_path = os.path.join(OUTPUT_DIR, filename)
+                    if not os.path.exists(file_path):
+                        print(f"Warning: File not found: {file_path}, skipping...")
+                        continue
+                    
+                    audio = AudioSegment.from_wav(file_path)
+                    
+                    if combined_audio is None:
+                        combined_audio = audio
+                    else:
+                        silence = AudioSegment.silent(duration=pause_ms)
+                        combined_audio = combined_audio + silence + audio
+                    
+                    print(f"Added audio file {i+1}/{len(audio_files)}: {filename}")
+                
+                if combined_audio is None:
+                    return jsonify({'error': 'No valid audio files found to concatenate'}), 400
+                
+                combined_audio.export(output_path, format="wav")
+                print(f"Concatenated audio saved using pydub: {output_path}")
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Concatenated {len(audio_files)} audio file(s) with {pause_seconds}s pauses',
+                    'filename': output_filename,
+                    'file_path': output_path
+                })
+            except Exception as e:
+                print(f"pydub concatenation failed: {e}, falling back to pure Python method")
+        
+        # Fall back to pure Python concatenation
+        file_paths = []
+        for filename in audio_files:
+            file_path = os.path.join(OUTPUT_DIR, filename)
+            if os.path.exists(file_path):
+                file_paths.append(file_path)
+        
+        if not file_paths:
+            return jsonify({'error': 'No valid audio files found to concatenate'}), 400
+        
+        concatenate_wav_files_pure_python(file_paths, output_path, pause_seconds)
+        print(f"Concatenated audio saved using pure Python: {output_path}")
         
         return jsonify({
             'success': True,
-            'message': f'Concatenated {len(audio_files)} audio file(s) with {pause_seconds}s pauses',
+            'message': f'Concatenated {len(file_paths)} audio file(s) with {pause_seconds}s pauses',
             'filename': output_filename,
             'file_path': output_path
         })
