@@ -10,6 +10,12 @@ from google.genai import types
 import tempfile
 import io
 import shutil
+try:
+    from pydub import AudioSegment
+    PYDUB_AVAILABLE = True
+except ImportError:
+    PYDUB_AVAILABLE = False
+    print("Warning: pydub not installed, concatenation feature will not work")
 
 app = Flask(__name__)
 
@@ -531,6 +537,74 @@ def generate_paragraphs_endpoint():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/concatenate-audio', methods=['POST'])
+def concatenate_audio():
+    """Concatenate multiple audio files into one with pauses."""
+    if not PYDUB_AVAILABLE:
+        return jsonify({'error': 'pydub not installed. Please run: pip install pydub'}), 500
+    
+    try:
+        data = request.json
+        chapter_title = data.get('chapter_title', '')
+        audio_files = data.get('audio_files', [])
+        pause_seconds = data.get('pause_seconds', 2.5)  # Default 2.5 seconds
+        
+        if not chapter_title or not audio_files:
+            return jsonify({'error': 'Chapter title and audio files required'}), 400
+        
+        if not isinstance(audio_files, list):
+            return jsonify({'error': 'audio_files must be a list'}), 400
+        
+        # Load all audio files
+        combined_audio = None
+        pause_ms = int(pause_seconds * 1000)  # Convert to milliseconds
+        
+        for i, filename in enumerate(audio_files):
+            file_path = os.path.join(OUTPUT_DIR, filename)
+            if not os.path.exists(file_path):
+                print(f"Warning: File not found: {file_path}, skipping...")
+                continue
+            
+            try:
+                audio = AudioSegment.from_wav(file_path)
+                
+                if combined_audio is None:
+                    combined_audio = audio
+                else:
+                    # Add pause before this audio
+                    silence = AudioSegment.silent(duration=pause_ms)
+                    combined_audio = combined_audio + silence + audio
+                
+                print(f"Added audio file {i+1}/{len(audio_files)}: {filename}")
+            except Exception as e:
+                print(f"Error loading audio file {filename}: {e}")
+                continue
+        
+        if combined_audio is None:
+            return jsonify({'error': 'No valid audio files found to concatenate'}), 400
+        
+        # Save concatenated audio
+        safe_title = sanitize_filename(chapter_title)
+        output_filename = f"{safe_title}_cat.wav"
+        output_path = os.path.join(OUTPUT_DIR, output_filename)
+        
+        combined_audio.export(output_path, format="wav")
+        print(f"Concatenated audio saved to: {output_path}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Concatenated {len(audio_files)} audio file(s) with {pause_seconds}s pauses',
+            'filename': output_filename,
+            'file_path': output_path
+        })
+        
+    except Exception as e:
+        error_msg = f'Failed to concatenate audio: {str(e)}'
+        print(f"EXCEPTION in concatenate_audio: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': error_msg}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

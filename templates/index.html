@@ -242,6 +242,35 @@
             transform: translateY(0);
         }
 
+        .concatenate-button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(159, 122, 234, 0.3);
+            white-space: nowrap;
+        }
+
+        .concatenate-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(159, 122, 234, 0.4);
+        }
+
+        .concatenate-button:active {
+            transform: translateY(0);
+        }
+
+        .concatenate-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .progress-container {
             margin-top: 10px;
             padding: 10px;
@@ -750,8 +779,16 @@
                 playAudioBtn.textContent = '▶ Play Audio';
                 playAudioBtn.setAttribute('data-chapter-index', index);
                 
+                const concatenateBtn = document.createElement('button');
+                concatenateBtn.className = 'concatenate-button';
+                concatenateBtn.type = 'button';
+                concatenateBtn.textContent = '🔗 Concatenate';
+                concatenateBtn.setAttribute('data-chapter-index', index);
+                concatenateBtn.setAttribute('data-button-type', 'concatenate');
+                
                 chapterActions.appendChild(generateChapterBtn);
                 chapterActions.appendChild(generateParagraphsBtn);
+                chapterActions.appendChild(concatenateBtn);
                 chapterActions.appendChild(playAudioBtn);
                 
                 // Create progress container
@@ -913,6 +950,12 @@
                 generateParagraphsBtn.addEventListener('click', async function(e) {
                     e.stopPropagation();
                     await generateParagraphs(index, chapter, progressContainer, progressFill, progressText, playAudioBtn);
+                });
+                
+                // Concatenate button click handler
+                concatenateBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    await concatenateChapterAudio(index, chapter, progressContainer, progressFill, progressText, playAudioBtn);
                 });
                 
                 // Play audio button click handler
@@ -1245,6 +1288,102 @@
                 button.textContent = '▶ Play';
                 delete window.currentlyPlayingAudio[audioKey];
                 showStatus('Error playing audio: ' + error.message, 'error');
+            }
+        }
+
+        // Concatenate all paragraph audio files for a chapter
+        async function concatenateChapterAudio(chapterIndex, chapter, progressContainer, progressFill, progressText, playAudioBtn) {
+            const button = document.querySelector(`button[data-chapter-index="${chapterIndex}"][data-button-type="concatenate"]`);
+            const originalText = button.textContent;
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Concatenating...';
+                progressContainer.classList.add('show');
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Starting...';
+                showStatus(`Concatenating audio for ${chapter.title}...`, 'info');
+                
+                // Check which audio files exist for this chapter
+                const response = await fetch('/check-audio-files', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        chapter_title: chapter.title,
+                        total_paragraphs: chapter.paragraphs ? chapter.paragraphs.length : 0
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    showStatus('Error: ' + (error.error || 'Failed to check audio files'), 'error');
+                    progressContainer.classList.remove('show');
+                    return;
+                }
+                
+                const result = await response.json();
+                const existingFiles = result.existing_files || {};
+                
+                // Build ordered list of audio files
+                const audioFiles = [];
+                for (let i = 1; i <= chapter.paragraphs.length; i++) {
+                    if (existingFiles[i]) {
+                        audioFiles.push(existingFiles[i]);
+                    }
+                }
+                
+                if (audioFiles.length === 0) {
+                    showStatus('No audio files found to concatenate. Please generate paragraphs first.', 'error');
+                    progressContainer.classList.remove('show');
+                    return;
+                }
+                
+                progressFill.style.width = '30%';
+                progressText.textContent = `Found ${audioFiles.length} audio file(s)...`;
+                
+                // Call concatenate endpoint
+                const concatResponse = await fetch('/concatenate-audio', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        chapter_title: chapter.title,
+                        audio_files: audioFiles,
+                        pause_seconds: 2.5
+                    })
+                });
+                
+                progressFill.style.width = '70%';
+                progressText.textContent = 'Processing...';
+                
+                if (concatResponse.ok) {
+                    const concatResult = await concatResponse.json();
+                    console.log('Concatenation result:', concatResult);
+                    progressFill.style.width = '100%';
+                    progressText.textContent = 'Complete!';
+                    showStatus(concatResult.message, 'success');
+                    playTing();
+                    
+                    // Update play audio button to play the concatenated file
+                    playAudioBtn.classList.add('show');
+                    playAudioBtn.setAttribute('data-audio-files', JSON.stringify([concatResult.filename]));
+                    playAudioBtn.setAttribute('data-chapter-title', chapter.title);
+                    
+                    // Hide progress after a delay
+                    setTimeout(() => {
+                        progressContainer.classList.remove('show');
+                    }, 3000);
+                } else {
+                    const error = await concatResponse.json();
+                    showStatus('Error: ' + (error.error || 'Failed to concatenate audio'), 'error');
+                    progressContainer.classList.remove('show');
+                }
+            } catch (error) {
+                console.error('Exception in concatenateChapterAudio:', error);
+                showStatus('Error: ' + error.message, 'error');
+                progressContainer.classList.remove('show');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
             }
         }
 
