@@ -1,0 +1,51 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Check Python syntax
+      run: |
+        python -m py_compile app.py tts.py
+        echo "✅ Python syntax check passed"
+    
+    - name: Check for common issues
+      run: |
+        # Check if critical files exist
+        test -f app.py && echo "✅ app.py exists" || exit 1
+        test -f requirements.txt && echo "✅ requirements.txt exists" || exit 1
+        test -f templates/index.html && echo "✅ index.html exists" || exit 1
+        test -f .gitignore && echo "✅ .gitignore exists" || exit 1
+    
+    - name: Security check
+      run: |
+        # Check if config.json is being committed (should be in .gitignore)
+        if git ls-files | grep -q "config.json"; then
+          echo "⚠️  WARNING: config.json is tracked - make sure API keys are not exposed!"
+          exit 1
+        else
+          echo "✅ config.json is properly ignored"
+        fi
+

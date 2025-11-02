@@ -48,6 +48,9 @@ outputs/
 # Config (contains API keys - should not be in repo)
 config.json
 
+# Keep GitHub workflows
+!.github/workflows/
+
 # Temporary files
 *.tmp
 *.temp
