@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google TTS Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-upload-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+            text-align: center;
+            border: none;
+            width: 100%;
+        }
+
+        .file-upload-button:hover {
+            background: #5568d3;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-name {
+            margin-top: 8px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .generate-button-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .generate-button {
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .generate-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .generate-button:active {
+            transform: translateY(0);
+        }
+
+        .chapter-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .chapter-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .generate-chapter-button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            white-space: nowrap;
+        }
+
+        .generate-chapter-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .generate-chapter-button:active {
+            transform: translateY(0);
+        }
+
+        .generate-chapter-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .generate-paragraphs-button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
+            white-space: nowrap;
+        }
+
+        .generate-paragraphs-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+
+        .generate-paragraphs-button:active {
+            transform: translateY(0);
+        }
+
+        .generate-paragraphs-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .play-audio-button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(246, 173, 85, 0.3);
+            white-space: nowrap;
+            display: none;
+        }
+
+        .play-audio-button.show {
+            display: inline-block;
+        }
+
+        .play-audio-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(246, 173, 85, 0.4);
+        }
+
+        .play-audio-button:active {
+            transform: translateY(0);
+        }
+
+        .progress-container {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .progress-container.show {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .chapters-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .chapters-container.show {
+            display: block;
+        }
+
+        .chapters-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .chapter-item {
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            overflow: hidden;
+        }
+
+        .chapter-header {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            cursor: pointer;
+            background: #f9f9f9;
+            transition: background 0.3s;
+            user-select: none;
+            gap: 12px;
+        }
+
+        .chapter-header:hover {
+            background: #f0f0f0;
+        }
+
+        .chapter-toggle {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 12px;
+            width: 24px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .chapter-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .chapter-paragraphs {
+            display: none;
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .chapter-paragraphs.expanded {
+            display: block;
+        }
+
+        .paragraph-item {
+            margin-bottom: 15px;
+        }
+
+        .paragraph-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .paragraph-content {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .paragraph-content:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Google TTS Generator</h1>
+        
+        <form id="ttsForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="text_file">Upload Text File</label>
+                <div class="file-upload-wrapper">
+                    <button type="button" class="file-upload-button" onclick="document.getElementById('text_file').click()">
+                        Choose File
+                    </button>
+                    <input type="file" id="text_file" name="text_file" accept=".txt,.text" />
+                    <div class="file-name" id="file-name">No file chosen</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="prompt">Prompt (e.g., "Read aloud in a warm, welcoming tone")</label>
+                <textarea id="prompt" name="prompt" placeholder="Read aloud in a warm, welcoming tone">{{ default_config.prompt if default_config else 'Please read carefully and don\'t mis-read any word.' }}</textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="voice1">Speaker 1 Voice Name</label>
+                    <input type="text" id="voice1" name="voice1" value="{{ default_config.voice1 if default_config else 'Puck' }}" placeholder="Puck" />
+                </div>
+                <div class="form-group">
+                    <label for="voice2">Speaker 2 Voice Name</label>
+                    <input type="text" id="voice2" name="voice2" value="{{ default_config.voice2 if default_config else 'Zephyr' }}" placeholder="Zephyr" />
+                </div>
+            </div>
+
+            <div class="chapters-container" id="chaptersContainer">
+                <div class="chapters-header" id="chaptersHeader">📚 Chapters</div>
+                <div id="chaptersList"></div>
+            </div>
+
+            <div class="generate-button-container">
+                <button type="submit" class="generate-button" id="generateButton">Generate Audio</button>
+            </div>
+
+            <div class="status-message" id="statusMessage"></div>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('ttsForm');
+        const fileInput = document.getElementById('text_file');
+        const fileNameDisplay = document.getElementById('file-name');
+        const statusMessage = document.getElementById('statusMessage');
+        const generateButton = document.getElementById('generateButton');
+        const promptInput = document.getElementById('prompt');
+        const voice1Input = document.getElementById('voice1');
+        const voice2Input = document.getElementById('voice2');
+        
+        // Auto-save config when values change
+        let saveConfigTimeout;
+        function saveConfig() {
+            clearTimeout(saveConfigTimeout);
+            saveConfigTimeout = setTimeout(async () => {
+                try {
+                    const config = {
+                        prompt: promptInput.value,
+                        voice1: voice1Input.value,
+                        voice2: voice2Input.value
+                    };
+                    await fetch('/save-config', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(config)
+                    });
+                } catch (error) {
+                    console.error('Error saving config:', error);
+                }
+            }, 1000); // Wait 1 second after last change before saving
+        }
+        
+        // Add event listeners for auto-save
+        promptInput.addEventListener('input', saveConfig);
+        voice1Input.addEventListener('input', saveConfig);
+        voice2Input.addEventListener('input', saveConfig);
+
+        // Handle file selection
+        fileInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                fileNameDisplay.textContent = file.name;
+                
+                // Send file to backend to decode with proper encoding support (GBK, UTF-8, etc.)
+                const formData = new FormData();
+                formData.append('text_file', file);
+                
+                try {
+                    showStatus('Decoding file content...', 'info');
+                    const response = await fetch('/decode-file', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        
+                        // Display chapters if available
+                        if (result.chapters && result.chapters.length > 0) {
+                            displayChapters(result.chapters);
+                            showStatus(`File loaded successfully! Found ${result.chapters.length} chapter(s).`, 'success');
+                        } else {
+                            hideChapters();
+                            showStatus('File loaded successfully!', 'success');
+                        }
+                    } else {
+                        const error = await response.json();
+                        showStatus('Error decoding file: ' + (error.error || 'Unknown error'), 'error');
+                    }
+                } catch (error) {
+                    showStatus('Error reading file. File will still be processed correctly.', 'info');
+                }
+            } else {
+                fileNameDisplay.textContent = 'No file chosen';
+                hideChapters();
+            }
+        });
+
+        // Handle form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // Show loading state
+            generateButton.disabled = true;
+            generateButton.textContent = 'Generating...';
+            showStatus('Generating audio, please wait...', 'info');
+            
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // Get the audio file
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'tts_output.wav';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    showStatus('Audio generated successfully! Download started.', 'success');
+                } else {
+                    const error = await response.json();
+                    showStatus('Error: ' + (error.error || 'Failed to generate audio'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                generateButton.disabled = false;
+                generateButton.textContent = 'Generate Audio';
+            }
+        });
+
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status-message ' + type;
+            setTimeout(() => {
+                statusMessage.className = 'status-message';
+            }, 5000);
+        }
+
+        function displayChapters(chapters) {
+            const container = document.getElementById('chaptersContainer');
+            const chaptersList = document.getElementById('chaptersList');
+            const chaptersHeader = document.getElementById('chaptersHeader');
+            
+            // Update header with chapter count
+            chaptersHeader.textContent = `📚 Chapters (${chapters.length})`;
+            
+            // Clear existing chapters
+            chaptersList.innerHTML = '';
+            
+            // Store chapters globally for generation
+            window.chaptersData = chapters;
+            
+            // Create chapter items
+            chapters.forEach((chapter, index) => {
+                const chapterDiv = document.createElement('div');
+                chapterDiv.className = 'chapter-item';
+                chapterDiv.setAttribute('data-chapter-index', index);
+                
+                // Chapter header with toggle
+                const chapterHeader = document.createElement('div');
+                chapterHeader.className = 'chapter-header';
+                
+                const toggle = document.createElement('span');
+                toggle.className = 'chapter-toggle';
+                toggle.textContent = '+';
+                toggle.setAttribute('data-state', 'collapsed');
+                
+                const chapterTitle = document.createElement('div');
+                chapterTitle.className = 'chapter-title';
+                chapterTitle.textContent = chapter.title;
+                
+                const chapterActions = document.createElement('div');
+                chapterActions.className = 'chapter-actions';
+                
+                const generateChapterBtn = document.createElement('button');
+                generateChapterBtn.className = 'generate-chapter-button';
+                generateChapterBtn.type = 'button';
+                generateChapterBtn.textContent = 'Generate Chapter';
+                generateChapterBtn.setAttribute('data-chapter-index', index);
+                generateChapterBtn.setAttribute('data-button-type', 'chapter');
+                
+                const generateParagraphsBtn = document.createElement('button');
+                generateParagraphsBtn.className = 'generate-paragraphs-button';
+                generateParagraphsBtn.type = 'button';
+                generateParagraphsBtn.textContent = 'Generate Paragraphs';
+                generateParagraphsBtn.setAttribute('data-chapter-index', index);
+                generateParagraphsBtn.setAttribute('data-button-type', 'paragraphs');
+                
+                const playAudioBtn = document.createElement('button');
+                playAudioBtn.className = 'play-audio-button';
+                playAudioBtn.type = 'button';
+                playAudioBtn.textContent = '▶ Play Audio';
+                playAudioBtn.setAttribute('data-chapter-index', index);
+                
+                chapterActions.appendChild(generateChapterBtn);
+                chapterActions.appendChild(generateParagraphsBtn);
+                chapterActions.appendChild(playAudioBtn);
+                
+                // Create progress container
+                const progressContainer = document.createElement('div');
+                progressContainer.className = 'progress-container';
+                progressContainer.setAttribute('data-chapter-index', index);
+                const progressBar = document.createElement('div');
+                progressBar.className = 'progress-bar';
+                const progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                const progressText = document.createElement('div');
+                progressText.className = 'progress-text';
+                progressText.textContent = 'Ready';
+                progressBar.appendChild(progressFill);
+                progressContainer.appendChild(progressBar);
+                progressContainer.appendChild(progressText);
+                
+                // Store references
+                chapterDiv.setAttribute('data-progress-container', '');
+                chapterDiv.appendChild(progressContainer);
+                
+                chapterHeader.appendChild(toggle);
+                chapterHeader.appendChild(chapterTitle);
+                chapterHeader.appendChild(chapterActions);
+                
+                // Chapter paragraphs container
+                const paragraphsContainer = document.createElement('div');
+                paragraphsContainer.className = 'chapter-paragraphs';
+                paragraphsContainer.setAttribute('data-state', 'collapsed');
+                
+                // Add paragraphs
+                if (chapter.paragraphs && chapter.paragraphs.length > 0) {
+                    chapter.paragraphs.forEach((paragraph, paraIndex) => {
+                        const paraDiv = document.createElement('div');
+                        paraDiv.className = 'paragraph-item';
+                        
+                        const paraContent = document.createElement('textarea');
+                        paraContent.className = 'paragraph-content';
+                        paraContent.value = paragraph;
+                        paraContent.setAttribute('readonly', 'readonly');
+                        paraContent.setAttribute('data-chapter-index', index);
+                        paraContent.setAttribute('data-paragraph-index', paraIndex);
+                        
+                        paraDiv.appendChild(paraContent);
+                        paragraphsContainer.appendChild(paraDiv);
+                    });
+                } else {
+                    // Fallback: show full content as single paragraph
+                    const paraDiv = document.createElement('div');
+                    paraDiv.className = 'paragraph-item';
+                    
+                    const paraContent = document.createElement('textarea');
+                    paraContent.className = 'paragraph-content';
+                    paraContent.value = chapter.content || '';
+                    paraContent.setAttribute('readonly', 'readonly');
+                    
+                    paraDiv.appendChild(paraContent);
+                    paragraphsContainer.appendChild(paraDiv);
+                }
+                
+                // Toggle functionality
+                chapterHeader.addEventListener('click', function(e) {
+                    // Don't toggle if clicking on the generate buttons
+                    if (e.target === generateChapterBtn || e.target === generateParagraphsBtn || e.target.closest('.chapter-actions')) {
+                        return;
+                    }
+                    
+                    const isExpanded = paragraphsContainer.classList.contains('expanded');
+                    
+                    if (isExpanded) {
+                        paragraphsContainer.classList.remove('expanded');
+                        toggle.textContent = '+';
+                        toggle.setAttribute('data-state', 'collapsed');
+                    } else {
+                        paragraphsContainer.classList.add('expanded');
+                        toggle.textContent = '-';
+                        toggle.setAttribute('data-state', 'expanded');
+                    }
+                });
+                
+                // Generate chapter button click handler
+                generateChapterBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    await generateChapter(index, chapter);
+                });
+                
+                // Generate paragraphs button click handler
+                generateParagraphsBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    await generateParagraphs(index, chapter, progressContainer, progressFill, progressText, playAudioBtn);
+                });
+                
+                // Play audio button click handler
+                playAudioBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    await playChapterAudio(index, chapter);
+                });
+                
+                chapterDiv.appendChild(chapterHeader);
+                chapterDiv.appendChild(paragraphsContainer);
+                chaptersList.appendChild(chapterDiv);
+            });
+            
+            container.classList.add('show');
+        }
+
+        function hideChapters() {
+            const container = document.getElementById('chaptersContainer');
+            container.classList.remove('show');
+            document.getElementById('chaptersList').innerHTML = '';
+        }
+
+        async function generateChapter(chapterIndex, chapter) {
+            const button = document.querySelector(`button[data-chapter-index="${chapterIndex}"][data-button-type="chapter"]`);
+            const progressContainer = document.querySelector(`.progress-container[data-chapter-index="${chapterIndex}"]`);
+            const progressFill = progressContainer.querySelector('.progress-fill');
+            const progressText = progressContainer.querySelector('.progress-text');
+            const originalText = button.textContent;
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Generating...';
+                progressContainer.classList.add('show');
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Preparing...';
+                showStatus(`Generating audio for ${chapter.title}...`, 'info');
+                
+                // Get prompt and voices from form
+                let prompt = document.getElementById('prompt').value;
+                // Add default prompt text if not already present
+                const defaultPrompt = 'Please read carefully and don\'t mis-read any word.';
+                if (!prompt.includes(defaultPrompt)) {
+                    prompt = prompt ? `${prompt} ${defaultPrompt}` : defaultPrompt;
+                }
+                const voice1 = document.getElementById('voice1').value || 'Puck';
+                const voice2 = document.getElementById('voice2').value || 'Zephyr';
+                
+                // Combine all paragraphs for the chapter
+                const chapterContent = chapter.paragraphs ? chapter.paragraphs.join('\n\n') : chapter.content;
+                
+                progressFill.style.width = '30%';
+                progressText.textContent = 'Sending request...';
+                
+                const formData = new FormData();
+                formData.append('text_content', chapterContent);
+                formData.append('prompt', prompt);
+                formData.append('voice1', voice1);
+                formData.append('voice2', voice2);
+                formData.append('chapter_title', chapter.title);
+                formData.append('save_to_file', 'true');
+                
+                progressFill.style.width = '50%';
+                progressText.textContent = 'Generating audio...';
+                
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                progressFill.style.width = '80%';
+                progressText.textContent = 'Processing...';
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Generation result:', result);
+                    progressFill.style.width = '100%';
+                    progressText.textContent = 'Complete!';
+                    showStatus(result.message || `Audio saved for ${chapter.title}!`, 'success');
+                    playTing();
+                    
+                    // Show play button for chapter generation
+                    const playAudioBtn = document.querySelector(`button.play-audio-button[data-chapter-index="${chapterIndex}"]`);
+                    if (playAudioBtn && result.filename) {
+                        playAudioBtn.classList.add('show');
+                        playAudioBtn.setAttribute('data-audio-files', JSON.stringify([result.filename]));
+                        playAudioBtn.setAttribute('data-chapter-title', chapter.title);
+                    }
+                    
+                    // Hide progress after a delay
+                    setTimeout(() => {
+                        progressContainer.classList.remove('show');
+                    }, 2000);
+                } else {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    let error;
+                    try {
+                        error = JSON.parse(errorText);
+                    } catch (e) {
+                        error = { error: errorText };
+                    }
+                    showStatus('Error: ' + (error.error || 'Failed to generate audio'), 'error');
+                    progressContainer.classList.remove('show');
+                }
+            } catch (error) {
+                console.error('Exception in generateChapter:', error);
+                showStatus('Error: ' + error.message, 'error');
+                progressContainer.classList.remove('show');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        async function generateParagraphs(chapterIndex, chapter, progressContainer, progressFill, progressText, playAudioBtn) {
+            const button = document.querySelector(`button[data-chapter-index="${chapterIndex}"][data-button-type="paragraphs"]`);
+            const originalText = button.textContent;
+            
+            try {
+                button.disabled = true;
+                button.textContent = 'Generating...';
+                progressContainer.classList.add('show');
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Starting...';
+                showStatus(`Generating paragraphs for ${chapter.title}...`, 'info');
+                
+                // Get prompt and voices from form
+                let prompt = document.getElementById('prompt').value;
+                // Add default prompt text if not already present
+                const defaultPrompt = 'Please read carefully and don\'t mis-read any word.';
+                if (!prompt.includes(defaultPrompt)) {
+                    prompt = prompt ? `${prompt} ${defaultPrompt}` : defaultPrompt;
+                }
+                const voice1 = document.getElementById('voice1').value || 'Puck';
+                const voice2 = document.getElementById('voice2').value || 'Zephyr';
+                
+                // Get paragraphs
+                const paragraphs = chapter.paragraphs || [chapter.content];
+                const totalParagraphs = paragraphs.length;
+                
+                const formData = new FormData();
+                paragraphs.forEach(para => {
+                    formData.append('paragraphs[]', para);
+                });
+                formData.append('chapter_title', chapter.title);
+                formData.append('prompt', prompt);
+                formData.append('voice1', voice1);
+                formData.append('voice2', voice2);
+                
+                // Update progress during generation
+                const updateProgress = (current, total) => {
+                    const percent = Math.round((current / total) * 100);
+                    progressFill.style.width = `${percent}%`;
+                    progressText.textContent = `Generating paragraph ${current} of ${total}`;
+                };
+                
+                // Simulate progress updates (since we can't track actual API progress)
+                updateProgress(0, totalParagraphs);
+                
+                const response = await fetch('/generate-paragraphs', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    progressFill.style.width = '100%';
+                    progressText.textContent = `Complete! Generated ${result.files.length} file(s)`;
+                    showStatus(result.message || `Generated ${result.files.length} paragraph file(s)!`, 'success');
+                    playTing();
+                    
+                    // Show play button and store file info
+                    playAudioBtn.classList.add('show');
+                    playAudioBtn.setAttribute('data-audio-files', JSON.stringify(result.files));
+                    playAudioBtn.setAttribute('data-chapter-title', chapter.title);
+                    
+                    // Hide progress after a delay
+                    setTimeout(() => {
+                        progressContainer.classList.remove('show');
+                    }, 3000);
+                } else {
+                    const error = await response.json();
+                    showStatus('Error: ' + (error.error || 'Failed to generate paragraphs'), 'error');
+                    progressContainer.classList.remove('show');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+                progressContainer.classList.remove('show');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        async function playChapterAudio(chapterIndex, chapter) {
+            const playAudioBtn = document.querySelector(`button.play-audio-button[data-chapter-index="${chapterIndex}"]`);
+            const audioFiles = playAudioBtn.getAttribute('data-audio-files');
+            
+            if (!audioFiles) {
+                showStatus('No audio files available for this chapter', 'error');
+                return;
+            }
+            
+            try {
+                const files = JSON.parse(audioFiles);
+                const chapterTitle = playAudioBtn.getAttribute('data-chapter-title');
+                
+                // Create audio element
+                let currentIndex = 0;
+                const audio = new Audio();
+                
+                const playNext = () => {
+                    if (currentIndex < files.length) {
+                        const safeTitle = chapterTitle.replace(/[<>:"/\\|?*]/g, '_');
+                        const filename = files[currentIndex];
+                        audio.src = `/outputs/${filename}`;
+                        audio.play();
+                        showStatus(`Playing: ${filename}`, 'info');
+                        
+                        audio.onended = () => {
+                            currentIndex++;
+                            if (currentIndex < files.length) {
+                                playNext();
+                            } else {
+                                showStatus('Finished playing all paragraphs', 'success');
+                            }
+                        };
+                    }
+                };
+                
+                playNext();
+            } catch (error) {
+                showStatus('Error playing audio: ' + error.message, 'error');
+            }
+        }
+
+        // Play a short "ting" sound on completion
+        function playTing() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = 'sine';
+                o.frequency.setValueAtTime(880, ctx.currentTime); // A5
+                g.gain.setValueAtTime(0.0001, ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+                o.connect(g);
+                g.connect(ctx.destination);
+                o.start();
+                o.stop(ctx.currentTime + 0.32);
+                // Close context after sound to free resources
+                o.onended = () => {
+                    try { ctx.close(); } catch (e) {}
+                };
+            } catch (e) {
+                console.error('Unable to play completion sound:', e);
+            }
+        }
+    </script>
+</body>
+</html>
+
