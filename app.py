@@ -160,6 +160,8 @@ def parse_chapters(text: str) -> list[dict]:
     if matches[0].start() > 0:
         preface_content = text[:matches[0].start()].strip()
         preface_paragraphs = parse_paragraphs(preface_content)
+        # Prepend chapter title as the first paragraph
+        preface_paragraphs.insert(0, '前言')
         chapters.append({
             'title': '前言',
             'content': preface_content,
@@ -185,6 +187,9 @@ def parse_chapters(text: str) -> list[dict]:
         
         # Parse paragraphs from chapter content
         paragraphs = parse_paragraphs(chapter_content)
+        
+        # Prepend chapter title as the first paragraph
+        paragraphs.insert(0, chapter_title)
         
         chapters.append({
             'title': chapter_title,
@@ -255,6 +260,34 @@ def decode_file():
         return jsonify({
             'content': text_content,
             'chapters': chapters
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/check-audio-files', methods=['POST'])
+def check_audio_files():
+    """Endpoint to check which paragraph audio files exist."""
+    try:
+        data = request.json
+        chapter_title = data.get('chapter_title', '')
+        total_paragraphs = data.get('total_paragraphs', 0)
+        
+        if not chapter_title or not total_paragraphs:
+            return jsonify({'error': 'Chapter title and paragraph count required'}), 400
+        
+        safe_title = sanitize_filename(chapter_title)
+        existing_files = {}
+        
+        # Check for each paragraph file
+        for index in range(1, total_paragraphs + 1):
+            filename = f"{safe_title}_{index:03d}.wav"
+            file_path = os.path.join(OUTPUT_DIR, filename)
+            if os.path.exists(file_path):
+                existing_files[index] = filename
+        
+        return jsonify({
+            'success': True,
+            'existing_files': existing_files
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
