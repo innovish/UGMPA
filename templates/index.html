@@ -402,6 +402,26 @@
             border-color: #667eea;
         }
 
+        .paragraph-prompt {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        .paragraph-prompt:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .paragraph-prompt::placeholder {
+            color: #999;
+            font-style: italic;
+        }
+
         .paragraph-actions {
             display: flex;
             gap: 10px;
@@ -805,7 +825,16 @@
                         paraActions.appendChild(playParaBtn);
                         paraActions.appendChild(generateParaBtn);
                         
+                        // Create paragraph prompt input
+                        const paraPromptInput = document.createElement('input');
+                        paraPromptInput.type = 'text';
+                        paraPromptInput.className = 'paragraph-prompt';
+                        paraPromptInput.placeholder = 'Optional: Additional prompt for this paragraph (e.g., "Read with more emotion")';
+                        paraPromptInput.setAttribute('data-chapter-index', index);
+                        paraPromptInput.setAttribute('data-paragraph-index', paraIndex);
+                        
                         paraDiv.appendChild(paraContent);
+                        paraDiv.appendChild(paraPromptInput);
                         paraDiv.appendChild(paraActions);
                         paragraphsContainer.appendChild(paraDiv);
                     });
@@ -840,7 +869,16 @@
                     paraActions.appendChild(playParaBtn);
                     paraActions.appendChild(generateParaBtn);
                     
+                    // Create paragraph prompt input for single paragraph
+                    const paraPromptInput = document.createElement('input');
+                    paraPromptInput.type = 'text';
+                    paraPromptInput.className = 'paragraph-prompt';
+                    paraPromptInput.placeholder = 'Optional: Additional prompt for this paragraph (e.g., "Read with more emotion")';
+                    paraPromptInput.setAttribute('data-chapter-index', index);
+                    paraPromptInput.setAttribute('data-paragraph-index', 0);
+                    
                     paraDiv.appendChild(paraContent);
+                    paraDiv.appendChild(paraPromptInput);
                     paraDiv.appendChild(paraActions);
                     paragraphsContainer.appendChild(paraDiv);
                 }
@@ -1234,12 +1272,19 @@
                 generateBtn.disabled = true;
                 generateBtn.textContent = 'Generating...';
                 
-                // Get prompt and voices from form
+                // Get base prompt and voices from form
                 let prompt = document.getElementById('prompt').value;
                 const defaultPrompt = 'Please read carefully and don\'t mis-read any word.';
                 if (!prompt.includes(defaultPrompt)) {
                     prompt = prompt ? `${prompt} ${defaultPrompt}` : defaultPrompt;
                 }
+                
+                // Get paragraph-specific prompt if provided
+                const paraPromptInput = document.querySelector(`input.paragraph-prompt[data-chapter-index="${chapterIndex}"][data-paragraph-index="${paragraphIndex}"]`);
+                if (paraPromptInput && paraPromptInput.value.trim()) {
+                    prompt = `${prompt} ${paraPromptInput.value.trim()}`;
+                }
+                
                 const voice1 = document.getElementById('voice1').value || 'Puck';
                 const voice2 = document.getElementById('voice2').value || 'Zephyr';
                 
