@@ -13,9 +13,13 @@ import shutil
 try:
     from pydub import AudioSegment
     PYDUB_AVAILABLE = True
-except ImportError:
+    print("✓ pydub successfully imported")
+except ImportError as e:
     PYDUB_AVAILABLE = False
-    print("Warning: pydub not installed, concatenation feature will not work")
+    print(f"⚠ Warning: pydub not installed, concatenation feature will not work: {e}")
+except Exception as e:
+    PYDUB_AVAILABLE = False
+    print(f"⚠ Warning: pydub import failed, concatenation feature will not work: {e}")
 
 app = Flask(__name__)
 
@@ -542,6 +546,7 @@ def generate_paragraphs_endpoint():
 def concatenate_audio():
     """Concatenate multiple audio files into one with pauses."""
     if not PYDUB_AVAILABLE:
+        print("ERROR: PYDUB_AVAILABLE is False, returning error to client")
         return jsonify({'error': 'pydub not installed. Please run: pip install pydub'}), 500
     
     try:
@@ -550,7 +555,10 @@ def concatenate_audio():
         audio_files = data.get('audio_files', [])
         pause_seconds = data.get('pause_seconds', 2.5)  # Default 2.5 seconds
         
+        print(f"Concatenate request: chapter_title={chapter_title}, audio_files={audio_files}, pause_seconds={pause_seconds}")
+        
         if not chapter_title or not audio_files:
+            print(f"ERROR: Missing parameters - chapter_title={chapter_title}, audio_files={audio_files}")
             return jsonify({'error': 'Chapter title and audio files required'}), 400
         
         if not isinstance(audio_files, list):
