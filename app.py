@@ -24,7 +24,7 @@ except Exception as e:
 app = Flask(__name__)
 
 # API key
-API_KEY = os.environ.get("GEMINI_API_KEY") or "AIzaSyC2h3TmDjRwkGsy48kSh6p8Tb46VyAxGcI"
+API_KEY = os.environ.get("GEMINI_API_KEY") or "AIzaSyAPkxf7aN4u2Jc5bmws9YREfRNGMkjxyZ8"
 
 # Create outputs directory if it doesn't exist
 OUTPUT_DIR = os.path.join(os.getcwd(), "outputs")

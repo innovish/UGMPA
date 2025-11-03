@@ -39,7 +39,7 @@ def save_binary_file(file_name, data):
 
 def generate():
     # Use provided API key or fall back to environment variable
-    api_key = os.environ.get("GEMINI_API_KEY") or "AIzaSyC2h3TmDjRwkGsy48kSh6p8Tb46VyAxGcI"
+    api_key = os.environ.get("GEMINI_API_KEY") or "AIzaSyAPkxf7aN4u2Jc5bmws9YREfRNGMkjxyZ8"
     client = genai.Client(
         api_key=api_key,
     )
