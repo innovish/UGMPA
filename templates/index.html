@@ -1495,6 +1495,7 @@
                 formData.append('voice2', voice2);
                 formData.append('chapter_title', chapter.title);
                 formData.append('save_to_file', 'true');
+                formData.append('paragraph_index', paragraphIndex);
                 
                 const response = await fetch('/generate', {
                     method: 'POST',

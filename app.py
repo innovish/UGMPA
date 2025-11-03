@@ -553,13 +553,14 @@ def generate_endpoint():
         # Check if this is a chapter generation request
         chapter_title = request.form.get('chapter_title', '')
         save_to_file = request.form.get('save_to_file', 'false').lower() == 'true'
+        paragraph_index = request.form.get('paragraph_index', '')
         
         if not text_content:
             error_msg = 'No text content provided. Please upload a file or enter text.'
             print(f"ERROR: {error_msg}")
             return jsonify({'error': error_msg}), 400
         
-        print(f"Generating TTS: prompt={prompt[:50]}..., voice1={voice1}, voice2={voice2}, save_to_file={save_to_file}, chapter_title={chapter_title}")
+        print(f"Generating TTS: prompt={prompt[:50]}..., voice1={voice1}, voice2={voice2}, save_to_file={save_to_file}, chapter_title={chapter_title}, paragraph_index={paragraph_index}")
         
         # Call the generate function with parameters
         audio_data, extension = generate_tts(text_content, prompt, voice1, voice2)
@@ -570,7 +571,12 @@ def generate_endpoint():
         if save_to_file and chapter_title:
             # Chapter generation - save with chapter title
             safe_title = sanitize_filename(chapter_title)
-            output_path = os.path.join(OUTPUT_DIR, f"{safe_title}{extension}")
+            if paragraph_index:
+                # Individual paragraph generation - include sequence number
+                output_path = os.path.join(OUTPUT_DIR, f"{safe_title}_{int(paragraph_index)+1:03d}{extension}")
+            else:
+                # Full chapter generation - save without sequence number
+                output_path = os.path.join(OUTPUT_DIR, f"{safe_title}{extension}")
         else:
             # Main generate button - save with timestamp
             timestamp = time.strftime("%Y%m%d_%H%M%S")
