@@ -797,62 +797,12 @@
                 toggle.textContent = '+';
                 toggle.setAttribute('data-state', 'collapsed');
                 
-                // Chapter title display with inline controls
-                const chapterTitleContainer = document.createElement('div');
-                chapterTitleContainer.className = 'chapter-title';
-                chapterTitleContainer.style.flex = '1';
-                
-                const chapterTitleContent = document.createElement('textarea');
-                chapterTitleContent.className = 'chapter-title-content';
-                chapterTitleContent.value = chapter.title;
-                chapterTitleContent.setAttribute('readonly', 'readonly');
-                chapterTitleContent.setAttribute('data-chapter-index', index);
-                chapterTitleContent.setAttribute('data-paragraph-index', 0);
-                
-                const chapterTitleActions = document.createElement('div');
-                chapterTitleActions.className = 'chapter-title-actions';
-                
-                const chapterTitlePrompt = document.createElement('input');
-                chapterTitlePrompt.type = 'text';
-                chapterTitlePrompt.className = 'paragraph-prompt chapter-title-prompt';
-                chapterTitlePrompt.placeholder = 'Optional: Additional prompt for chapter title (e.g., "Read with more emotion")';
-                chapterTitlePrompt.setAttribute('data-chapter-index', index);
-                chapterTitlePrompt.setAttribute('data-paragraph-index', 0);
-                
-                const chapterTitleButtons = document.createElement('div');
-                chapterTitleButtons.className = 'chapter-title-buttons';
-                
-                const playChapterTitleBtn = document.createElement('button');
-                playChapterTitleBtn.className = 'play-paragraph-button hidden';
-                playChapterTitleBtn.type = 'button';
-                playChapterTitleBtn.textContent = '▶ Play';
-                playChapterTitleBtn.setAttribute('data-chapter-index', index);
-                playChapterTitleBtn.setAttribute('data-paragraph-index', 0);
-                
-                const generateChapterTitleBtn = document.createElement('button');
-                generateChapterTitleBtn.className = 'generate-paragraph-button';
-                generateChapterTitleBtn.type = 'button';
-                generateChapterTitleBtn.textContent = '▶ Generate';
-                generateChapterTitleBtn.setAttribute('data-chapter-index', index);
-                generateChapterTitleBtn.setAttribute('data-paragraph-index', 0);
-                
-                // Check if audio file exists for chapter title (index 1 because paraIndex=0, fileIndex=1)
-                if (existingFiles[1]) {
-                    playChapterTitleBtn.classList.remove('hidden');
-                    playChapterTitleBtn.setAttribute('data-filename', existingFiles[1]);
-                }
-                
-                chapterTitleButtons.appendChild(playChapterTitleBtn);
-                chapterTitleButtons.appendChild(generateChapterTitleBtn);
-                
-                chapterTitleActions.appendChild(chapterTitlePrompt);
-                chapterTitleActions.appendChild(chapterTitleButtons);
-                
-                chapterTitleContainer.appendChild(chapterTitleContent);
-                chapterTitleContainer.appendChild(chapterTitleActions);
+                const chapterTitle = document.createElement('div');
+                chapterTitle.className = 'chapter-title';
+                chapterTitle.textContent = chapter.title;
                 
                 headerTop.appendChild(toggle);
-                headerTop.appendChild(chapterTitleContainer);
+                headerTop.appendChild(chapterTitle);
                 
                 // Actions row for buttons
                 const chapterActionsRow = document.createElement('div');
