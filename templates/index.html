@@ -446,9 +446,19 @@
 
         .paragraph-item {
             margin-bottom: 15px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .paragraph-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
         }
 
         .paragraph-item:last-child {
