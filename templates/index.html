@@ -115,6 +115,65 @@
             gap: 20px;
         }
 
+        .test-api-button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);
+        }
+
+        .test-api-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
+        }
+
+        .test-api-button:active {
+            transform: translateY(0);
+        }
+
+        .test-api-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .test-api-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .test-api-result.show {
+            display: block;
+        }
+
+        .test-api-result.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .test-api-result.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .test-api-result.info {
+            background: #bee3f8;
+            color: #2c5282;
+            border: 1px solid #90cdf4;
+        }
+
         .generate-button-container {
             display: flex;
             justify-content: flex-end;
@@ -575,6 +634,11 @@
     <div class="container">
         <h1>🎤 Google TTS Generator</h1>
         
+        <div style="margin-bottom: 20px; text-align: center;">
+            <button type="button" id="testApiButton" class="test-api-button">🔍 Test API</button>
+            <div id="testApiResult" class="test-api-result"></div>
+        </div>
+        
         <form id="ttsForm" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="text_file">Upload Text File</label>
@@ -652,6 +716,40 @@
         promptInput.addEventListener('input', saveConfig);
         voice1Input.addEventListener('input', saveConfig);
         voice2Input.addEventListener('input', saveConfig);
+
+        // Test API button handler
+        const testApiButton = document.getElementById('testApiButton');
+        const testApiResult = document.getElementById('testApiResult');
+        
+        testApiButton.addEventListener('click', async function() {
+            testApiButton.disabled = true;
+            testApiButton.textContent = 'Testing...';
+            testApiResult.className = 'test-api-result show info';
+            testApiResult.textContent = 'Testing API connection...';
+            
+            try {
+                const response = await fetch('/test-api', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    testApiResult.className = 'test-api-result show success';
+                    testApiResult.textContent = `✓ ${result.message} (Audio size: ${result.audio_size} bytes, Extension: ${result.file_extension})`;
+                } else {
+                    testApiResult.className = 'test-api-result show error';
+                    testApiResult.textContent = `✗ ${result.message}`;
+                }
+            } catch (error) {
+                testApiResult.className = 'test-api-result show error';
+                testApiResult.textContent = `✗ Error: ${error.message}`;
+            } finally {
+                testApiButton.disabled = false;
+                testApiButton.textContent = '🔍 Test API';
+            }
+        });
 
         // Handle file selection
         fileInput.addEventListener('change', async function(e) {

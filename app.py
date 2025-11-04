@@ -130,6 +130,38 @@ def save_config_endpoint():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/test-api', methods=['POST'])
+def test_api():
+    """Endpoint to test if the Gemini TTS API is working."""
+    try:
+        # Test with a simple text
+        test_text = "测试"
+        test_prompt = "Please read this test message."
+        
+        # Try to generate TTS
+        audio_data, extension = generate_tts(test_text, test_prompt, 'Puck', 'Zephyr')
+        
+        if audio_data and len(audio_data) > 0:
+            return jsonify({
+                'success': True,
+                'message': 'API is working correctly!',
+                'audio_size': len(audio_data),
+                'file_extension': extension
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'API returned empty audio data'
+            }), 500
+            
+    except Exception as e:
+        error_msg = str(e)
+        return jsonify({
+            'success': False,
+            'message': f'API test failed: {error_msg}',
+            'error': error_msg
+        }), 500
+
 def decode_file_content(file_data: bytes) -> str:
     """Decode file content trying multiple encodings, prioritizing Chinese encodings."""
     encodings = ['utf-8', 'utf-8-sig', 'gbk', 'gb2312', 'gb18030', 'big5', 'latin-1', 'cp1252', 'iso-8859-1']
