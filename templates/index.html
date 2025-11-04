@@ -510,9 +510,29 @@
             border-radius: 8px;
             background: #fafafa;
             display: flex;
+            flex-direction: row;
+            gap: 12px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .paragraph-number {
+            flex-shrink: 0;
+            width: 40px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            display: flex;
+            align-items: flex-start;
+            padding-top: 12px;
+            text-align: center;
+            justify-content: center;
+        }
+
+        .paragraph-content-wrapper {
+            flex: 1;
+            display: flex;
             flex-direction: column;
             gap: 8px;
-            transition: border-color 0.3s, box-shadow 0.3s;
         }
 
         .paragraph-item:hover {
@@ -986,6 +1006,15 @@
                         const paraDiv = document.createElement('div');
                         paraDiv.className = 'paragraph-item';
                         
+                        // Create paragraph number
+                        const paraNumber = document.createElement('div');
+                        paraNumber.className = 'paragraph-number';
+                        paraNumber.textContent = (paraIndex + 1).toString();
+                        
+                        // Create content wrapper
+                        const contentWrapper = document.createElement('div');
+                        contentWrapper.className = 'paragraph-content-wrapper';
+                        
                         const paraContent = document.createElement('textarea');
                         paraContent.className = 'paragraph-content';
                         paraContent.value = paragraph;
@@ -1031,15 +1060,27 @@
                         paraPromptInput.setAttribute('data-chapter-index', index);
                         paraPromptInput.setAttribute('data-paragraph-index', paraIndex);
                         
-                        paraDiv.appendChild(paraContent);
-                        paraDiv.appendChild(paraPromptInput);
-                        paraDiv.appendChild(paraActions);
+                        contentWrapper.appendChild(paraContent);
+                        contentWrapper.appendChild(paraPromptInput);
+                        contentWrapper.appendChild(paraActions);
+                        
+                        paraDiv.appendChild(paraNumber);
+                        paraDiv.appendChild(contentWrapper);
                         paragraphsContainer.appendChild(paraDiv);
                     });
                 } else {
                     // Fallback: show full content as single paragraph
                     const paraDiv = document.createElement('div');
                     paraDiv.className = 'paragraph-item';
+                    
+                    // Create paragraph number
+                    const paraNumber = document.createElement('div');
+                    paraNumber.className = 'paragraph-number';
+                    paraNumber.textContent = '1';
+                    
+                    // Create content wrapper
+                    const contentWrapper = document.createElement('div');
+                    contentWrapper.className = 'paragraph-content-wrapper';
                     
                     const paraContent = document.createElement('textarea');
                     paraContent.className = 'paragraph-content';
@@ -1075,9 +1116,12 @@
                     paraPromptInput.setAttribute('data-chapter-index', index);
                     paraPromptInput.setAttribute('data-paragraph-index', 0);
                     
-                    paraDiv.appendChild(paraContent);
-                    paraDiv.appendChild(paraPromptInput);
-                    paraDiv.appendChild(paraActions);
+                    contentWrapper.appendChild(paraContent);
+                    contentWrapper.appendChild(paraPromptInput);
+                    contentWrapper.appendChild(paraActions);
+                    
+                    paraDiv.appendChild(paraNumber);
+                    paraDiv.appendChild(contentWrapper);
                     paragraphsContainer.appendChild(paraDiv);
                 }
                 
@@ -1179,8 +1223,14 @@
                 const voice1 = document.getElementById('voice1').value || 'Puck';
                 const voice2 = document.getElementById('voice2').value || 'Zephyr';
                 
-                // Combine all paragraphs for the chapter
-                const chapterContent = chapter.paragraphs ? chapter.paragraphs.join('\n\n') : chapter.content;
+                // Combine all paragraphs for the chapter, starting with the chapter title
+                let chapterContent;
+                if (chapter.paragraphs && chapter.paragraphs.length > 0) {
+                    // Start with chapter title, then add all paragraphs
+                    chapterContent = chapter.title + '\n\n' + chapter.paragraphs.join('\n\n');
+                } else {
+                    chapterContent = chapter.title + '\n\n' + chapter.content;
+                }
                 
                 progressFill.style.width = '30%';
                 progressText.textContent = 'Sending request...';
