@@ -1061,38 +1061,63 @@
             // Store chapters globally for generation
             window.chaptersData = chapters;
             
-            // Check for existing audio files for each chapter
+            // Check for existing audio files for each chapter (both paragraph files and full chapter files)
             const audioFileChecks = await Promise.all(
                 chapters.map(async (chapter, idx) => {
-                    if (!chapter.paragraphs || chapter.paragraphs.length === 0) {
-                        return {};
+                    const result = {
+                        paragraphFiles: {},
+                        chapterGenerated: false,
+                        chapterFilename: null
+                    };
+                    
+                    // Check paragraph audio files
+                    if (chapter.paragraphs && chapter.paragraphs.length > 0) {
+                        try {
+                            const response = await fetch('/check-audio-files', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    chapter_title: chapter.title,
+                                    total_paragraphs: chapter.paragraphs.length
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const checkResult = await response.json();
+                                result.paragraphFiles = checkResult.existing_files || {};
+                            }
+                        } catch (error) {
+                            console.error(`Error checking paragraph audio for chapter ${idx}:`, error);
+                        }
                     }
                     
+                    // Check if full chapter audio file exists
                     try {
-                        const response = await fetch('/check-audio-files', {
+                        const chapterResponse = await fetch('/check-chapter-generated', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({
-                                chapter_title: chapter.title,
-                                total_paragraphs: chapter.paragraphs.length
+                                chapter_title: chapter.title
                             })
                         });
                         
-                        if (response.ok) {
-                            const result = await response.json();
-                            return result.existing_files || {};
+                        if (chapterResponse.ok) {
+                            const chapterResult = await chapterResponse.json();
+                            result.chapterGenerated = chapterResult.generated || false;
+                            result.chapterFilename = chapterResult.filename || null;
                         }
                     } catch (error) {
-                        console.error(`Error checking audio for chapter ${idx}:`, error);
+                        console.error(`Error checking chapter audio for chapter ${idx}:`, error);
                     }
                     
-                    return {};
+                    return result;
                 })
             );
             
             // Create chapter items
             chapters.forEach((chapter, index) => {
-                const existingFiles = audioFileChecks[index] || {};
+                const audioCheck = audioFileChecks[index] || { paragraphFiles: {}, chapterGenerated: false, chapterFilename: null };
+                const existingFiles = audioCheck.paragraphFiles || {};
                 const chapterDiv = document.createElement('div');
                 chapterDiv.className = 'chapter-item';
                 chapterDiv.setAttribute('data-chapter-index', index);
@@ -1143,6 +1168,13 @@
                 playAudioBtn.type = 'button';
                 playAudioBtn.textContent = '▶ Play Audio';
                 playAudioBtn.setAttribute('data-chapter-index', index);
+                
+                // If chapter audio already exists, show the play button
+                if (audioCheck.chapterGenerated && audioCheck.chapterFilename) {
+                    playAudioBtn.classList.add('show');
+                    playAudioBtn.setAttribute('data-audio-files', JSON.stringify([audioCheck.chapterFilename]));
+                    playAudioBtn.setAttribute('data-chapter-title', chapter.title);
+                }
                 
                 const concatenateBtn = document.createElement('button');
                 concatenateBtn.className = 'concatenate-button';
