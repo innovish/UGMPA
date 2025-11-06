@@ -639,6 +639,85 @@
             display: none;
         }
 
+        /* Tab System */
+        .tabs-container {
+            margin-bottom: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .tab-button:hover {
+            color: #667eea;
+            background: #f5f5f5;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #fafafa;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Comic Maker specific styles */
+        .comic-chapter-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .comic-chapter-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .comic-chapter-content {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            min-height: 200px;
+            resize: vertical;
+            background: white;
+            line-height: 1.6;
+        }
+
+        .comic-chapters-container {
+            margin-top: 20px;
+        }
+
         @media (max-width: 600px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -652,7 +731,16 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎤 Google TTS Generator</h1>
+        <div class="tabs-container">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="tts-generator">🎤 Google TTS Generator</button>
+                <button class="tab-button" data-tab="comic-maker">📚 Comic Maker</button>
+            </div>
+        </div>
+
+        <!-- TTS Generator Tab -->
+        <div id="tts-generator-tab" class="tab-content active">
+            <h1>🎤 Google TTS Generator</h1>
         
         <div style="margin-bottom: 20px; text-align: center;">
             <button type="button" id="testApiButton" class="test-api-button">🔍 Test API</button>
@@ -698,9 +786,51 @@
 
             <div class="status-message" id="statusMessage"></div>
         </form>
+        </div>
+
+        <!-- Comic Maker Tab -->
+        <div id="comic-maker-tab" class="tab-content">
+            <h1>📚 Comic Maker</h1>
+            
+            <form id="comicForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="comic_text_file">Upload Text File</label>
+                    <div class="file-upload-wrapper">
+                        <button type="button" class="file-upload-button" onclick="document.getElementById('comic_text_file').click()">
+                            Choose File
+                        </button>
+                        <input type="file" id="comic_text_file" name="comic_text_file" accept=".txt,.text" />
+                        <div class="file-name" id="comic-file-name">No file chosen</div>
+                    </div>
+                </div>
+
+                <div class="comic-chapters-container" id="comicChaptersContainer">
+                    <div class="chapters-header" id="comicChaptersHeader" style="display: none;">📚 Chapters</div>
+                    <div id="comicChaptersList"></div>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
+        // Tab switching functionality
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-tab');
+                
+                // Remove active class from all tabs and buttons
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding content
+                this.classList.add('active');
+                document.getElementById(`${targetTab}-tab`).classList.add('active');
+            });
+        });
+
         const form = document.getElementById('ttsForm');
         const fileInput = document.getElementById('text_file');
         const fileNameDisplay = document.getElementById('file-name');
@@ -709,6 +839,13 @@
         const promptInput = document.getElementById('prompt');
         const voice1Input = document.getElementById('voice1');
         const voice2Input = document.getElementById('voice2');
+        
+        // Comic Maker elements
+        const comicForm = document.getElementById('comicForm');
+        const comicFileInput = document.getElementById('comic_text_file');
+        const comicFileNameDisplay = document.getElementById('comic-file-name');
+        const comicChaptersList = document.getElementById('comicChaptersList');
+        const comicChaptersHeader = document.getElementById('comicChaptersHeader');
         
         // Auto-save config when values change
         let saveConfigTimeout;

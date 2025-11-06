@@ -23,9 +23,6 @@ except Exception as e:
 
 app = Flask(__name__)
 
-# API key
-API_KEY = os.environ.get("GEMINI_API_KEY") or "AIzaSyAkRHaaeBv_R1Un9fQjdBDc1eZl_xLnvkU"
-
 # Create outputs directory if it doesn't exist
 OUTPUT_DIR = os.path.join(os.getcwd(), "outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -44,8 +41,17 @@ def load_config():
     return {
         'prompt': 'Please read carefully and don\'t mis-read any word.',
         'voice1': 'Puck',
-        'voice2': 'Zephyr'
+        'voice2': 'Zephyr',
+        'api_key': ''  # API key can be set in config.json
     }
+
+# Load config and get API key (priority: config.json > environment variable > hardcoded default)
+config = load_config()
+API_KEY = (
+    config.get('api_key') or 
+    os.environ.get("GEMINI_API_KEY") or 
+    "AIzaSyAkRHaaeBv_R1Un9fQjdBDc1eZl_xLnvkU"
+)
 
 def save_config(config):
     """Save default configuration to file."""
@@ -120,10 +126,13 @@ def save_config_endpoint():
     """Endpoint to save default configuration."""
     try:
         data = request.json
+        # Load existing config to preserve api_key
+        existing_config = load_config()
         config = {
             'prompt': data.get('prompt', ''),
             'voice1': data.get('voice1', 'Puck'),
-            'voice2': data.get('voice2', 'Zephyr')
+            'voice2': data.get('voice2', 'Zephyr'),
+            'api_key': existing_config.get('api_key', '')  # Preserve existing api_key
         }
         save_config(config)
         return jsonify({'success': True, 'message': 'Configuration saved'})
