@@ -347,6 +347,37 @@ def check_audio_files():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/check-chapter-generated', methods=['POST'])
+def check_chapter_generated():
+    """Endpoint to check if a chapter audio file exists (full chapter generation)."""
+    try:
+        data = request.json
+        chapter_title = data.get('chapter_title', '')
+        
+        if not chapter_title:
+            return jsonify({'error': 'Chapter title required'}), 400
+        
+        safe_title = sanitize_filename(chapter_title)
+        # Check for full chapter audio file (format: {chapter_title}.wav)
+        # Also check common audio extensions
+        extensions = ['.wav', '.mp3', '.ogg']
+        for ext in extensions:
+            filename = f"{safe_title}{ext}"
+            file_path = os.path.join(OUTPUT_DIR, filename)
+            if os.path.exists(file_path):
+                return jsonify({
+                    'success': True,
+                    'generated': True,
+                    'filename': filename
+                })
+        
+        return jsonify({
+            'success': True,
+            'generated': False
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 def generate_tts(text_content: str, prompt: str, speaker1_voice: str, speaker2_voice: str):
     """
     Generate TTS audio from text content.
