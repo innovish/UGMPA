@@ -1,0 +1,7 @@
+{
+  "prompt": "Please read carefully and don't mis-read any word.",
+  "voice1": "Puck",
+  "voice2": "Zephyr",
+  "api_key": "YOUR_GEMINI_API_KEY_HERE"
+}
+

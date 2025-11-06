@@ -45,13 +45,17 @@ def load_config():
         'api_key': ''  # API key can be set in config.json
     }
 
-# Load config and get API key (priority: config.json > environment variable > hardcoded default)
+# Load config and get API key (priority: config.json > environment variable)
+# API key must be set in config.json or as environment variable GEMINI_API_KEY
 config = load_config()
-API_KEY = (
-    config.get('api_key') or 
-    os.environ.get("GEMINI_API_KEY") or 
-    "AIzaSyAkRHaaeBv_R1Un9fQjdBDc1eZl_xLnvkU"
-)
+API_KEY = config.get('api_key') or os.environ.get("GEMINI_API_KEY")
+
+if not API_KEY:
+    print("⚠ WARNING: No API key found!")
+    print("   Please set your Gemini API key in one of the following ways:")
+    print("   1. Add 'api_key' field to config.json file")
+    print("   2. Set GEMINI_API_KEY environment variable")
+    print("   The application may not work without a valid API key.")
 
 def save_config(config):
     """Save default configuration to file."""
