@@ -1445,8 +1445,17 @@
                 if (chapter.paragraphs && chapter.paragraphs.length > 0) {
                     // Start with chapter title, then add all paragraphs
                     chapterContent = chapter.title + '\n\n' + chapter.paragraphs.join('\n\n');
+                    console.log(`Generating chapter "${chapter.title}":`, {
+                        totalParagraphs: chapter.paragraphs.length,
+                        contentLength: chapterContent.length,
+                        firstChars: chapterContent.substring(0, 200)
+                    });
                 } else {
                     chapterContent = chapter.title + '\n\n' + chapter.content;
+                    console.log(`Generating chapter "${chapter.title}" (no paragraphs array):`, {
+                        contentLength: chapterContent.length,
+                        firstChars: chapterContent.substring(0, 200)
+                    });
                 }
                 
                 progressFill.style.width = '30%';
@@ -1539,9 +1548,16 @@
                 const paragraphs = chapter.paragraphs || [chapter.content];
                 const totalParagraphs = paragraphs.length;
                 
+                console.log(`Generating paragraphs for chapter "${chapter.title}":`, {
+                    totalParagraphs: totalParagraphs,
+                    paragraphs: paragraphs,
+                    paragraphCount: paragraphs.length
+                });
+                
                 const formData = new FormData();
-                paragraphs.forEach(para => {
-                    formData.append('paragraphs[]', para);
+                paragraphs.forEach((para, idx) => {
+                    console.log(`Adding paragraph ${idx + 1}:`, para.substring(0, 50) + '...');
+                    formData.append('paragraphs', para);
                 });
                 formData.append('chapter_title', chapter.title);
                 formData.append('prompt', prompt);
@@ -1625,6 +1641,19 @@
                 return;
             }
             
+            const audioKey = `chapter_${chapterIndex}`;
+            const currentAudioData = window.currentlyPlayingChapterAudio[audioKey];
+            
+            // If audio is playing, stop it
+            if (currentAudioData && currentAudioData.audio && !currentAudioData.audio.paused) {
+                currentAudioData.audio.pause();
+                currentAudioData.audio.currentTime = 0;
+                playAudioBtn.textContent = '▶ Play Audio';
+                delete window.currentlyPlayingChapterAudio[audioKey];
+                showStatus('Stopped', 'info');
+                return;
+            }
+            
             try {
                 const files = JSON.parse(audioFiles);
                 const chapterTitle = playAudioBtn.getAttribute('data-chapter-title');
@@ -1632,6 +1661,16 @@
                 // Create audio element
                 let currentIndex = 0;
                 const audio = new Audio();
+                
+                // Store audio reference for stopping
+                window.currentlyPlayingChapterAudio[audioKey] = {
+                    audio: audio,
+                    currentIndex: currentIndex,
+                    files: files
+                };
+                
+                // Change button text to Pause
+                playAudioBtn.textContent = '⏸ Pause';
                 
                 const playNext = () => {
                     if (currentIndex < files.length) {
@@ -1641,77 +1680,163 @@
                         audio.play();
                         showStatus(`Playing: ${filename}`, 'info');
                         
+                        // Update stored index
+                        if (window.currentlyPlayingChapterAudio[audioKey]) {
+                            window.currentlyPlayingChapterAudio[audioKey].currentIndex = currentIndex;
+                        }
+                        
                         audio.onended = () => {
                             currentIndex++;
                             if (currentIndex < files.length) {
                                 playNext();
                             } else {
+                                playAudioBtn.textContent = '▶ Play Audio';
+                                delete window.currentlyPlayingChapterAudio[audioKey];
                                 showStatus('Finished playing all paragraphs', 'success');
                             }
+                        };
+                        
+                        audio.onerror = (error) => {
+                            playAudioBtn.textContent = '▶ Play Audio';
+                            delete window.currentlyPlayingChapterAudio[audioKey];
+                            showStatus('Error playing audio: ' + error.message, 'error');
                         };
                     }
                 };
                 
                 playNext();
             } catch (error) {
+                playAudioBtn.textContent = '▶ Play Audio';
+                delete window.currentlyPlayingChapterAudio[audioKey];
                 showStatus('Error playing audio: ' + error.message, 'error');
             }
         }
 
         // Store currently playing audio for each paragraph
         window.currentlyPlayingAudio = {};
+        // Store currently playing audio for each chapter
+        window.currentlyPlayingChapterAudio = {};
+        // Store chapter paragraph playback state
+        window.currentlyPlayingChapterParagraphs = {};
         
-        // Play audio for a single paragraph
+        // Play all paragraphs in a chapter sequentially
         async function playParagraphAudio(chapterIndex, paragraphIndex, filename, button) {
-            if (!filename) {
-                showStatus('No audio file available for this paragraph', 'error');
+            const chapterKey = `chapter_${chapterIndex}`;
+            const currentPlayback = window.currentlyPlayingChapterParagraphs[chapterKey];
+            
+            // If already playing, stop it
+            if (currentPlayback && currentPlayback.audio && !currentPlayback.audio.paused) {
+                currentPlayback.audio.pause();
+                currentPlayback.audio.currentTime = 0;
+                // Reset all paragraph buttons in this chapter
+                const allParaButtons = document.querySelectorAll(`button.play-paragraph-button[data-chapter-index="${chapterIndex}"]`);
+                allParaButtons.forEach(btn => {
+                    btn.textContent = '▶ Play';
+                });
+                delete window.currentlyPlayingChapterParagraphs[chapterKey];
+                showStatus('Stopped', 'info');
                 return;
             }
             
-            const audioKey = `${chapterIndex}_${paragraphIndex}`;
-            const currentAudio = window.currentlyPlayingAudio[audioKey];
-            
-            // If audio is playing, pause it
-            if (currentAudio && !currentAudio.paused) {
-                currentAudio.pause();
-                button.textContent = '▶ Play';
-                showStatus('Paused', 'info');
+            // Get chapter data
+            const chapters = window.chaptersData;
+            if (!chapters || !chapters[chapterIndex]) {
+                showStatus('Chapter data not found', 'error');
                 return;
             }
             
-            // If audio is paused, resume it
-            if (currentAudio && currentAudio.paused) {
-                currentAudio.play();
-                button.textContent = '⏸ Pause';
-                showStatus('Resumed', 'info');
+            const chapter = chapters[chapterIndex];
+            const totalParagraphs = chapter.paragraphs ? chapter.paragraphs.length : 1;
+            
+            // Collect all paragraph buttons and their filenames (skip paragraphs without audio)
+            const paragraphFiles = [];
+            for (let i = 0; i < totalParagraphs; i++) {
+                const paraBtn = document.querySelector(`button.play-paragraph-button[data-chapter-index="${chapterIndex}"][data-paragraph-index="${i}"]`);
+                if (paraBtn) {
+                    const paraFilename = paraBtn.getAttribute('data-filename');
+                    if (paraFilename) {
+                        paragraphFiles.push({
+                            index: i,
+                            filename: paraFilename,
+                            button: paraBtn
+                        });
+                    }
+                }
+            }
+            
+            if (paragraphFiles.length === 0) {
+                showStatus('No audio files available for any paragraph in this chapter', 'error');
                 return;
             }
             
-            // Start playing new audio
-            try {
-                const audio = new Audio(`/outputs/${filename}`);
-                window.currentlyPlayingAudio[audioKey] = audio;
-                
-                showStatus(`Playing paragraph ${parseInt(paragraphIndex) + 1}...`, 'info');
-                button.textContent = '⏸ Pause';
-                audio.play();
-                
-                audio.onended = () => {
-                    button.textContent = '▶ Play';
-                    delete window.currentlyPlayingAudio[audioKey];
-                    showStatus('Finished playing paragraph', 'success');
-                };
-                
-                audio.onerror = (error) => {
-                    button.textContent = '▶ Play';
-                    delete window.currentlyPlayingAudio[audioKey];
-                    showStatus('Error playing audio: ' + error.message, 'error');
-                };
-            } catch (error) {
-                button.textContent = '▶ Play';
-                delete window.currentlyPlayingAudio[audioKey];
-                showStatus('Error playing audio: ' + error.message, 'error');
-            }
+            // Update all paragraph buttons that have audio files to show Pause
+            paragraphFiles.forEach(fileInfo => {
+                if (fileInfo.button) {
+                    fileInfo.button.textContent = '⏸ Pause';
+                }
+            });
+            
+            // Start playing all paragraphs sequentially
+            let currentFileIndex = 0;
+            const audio = new Audio();
+            
+            // Store playback state
+            window.currentlyPlayingChapterParagraphs[chapterKey] = {
+                audio: audio,
+                currentFileIndex: currentFileIndex,
+                paragraphFiles: paragraphFiles
+            };
+            
+            const playNext = () => {
+                if (currentFileIndex < paragraphFiles.length) {
+                    const fileInfo = paragraphFiles[currentFileIndex];
+                    audio.src = `/outputs/${fileInfo.filename}`;
+                    
+                    showStatus(`Playing paragraph ${fileInfo.index + 1} of ${totalParagraphs}...`, 'info');
+                    
+                    // Update stored index
+                    if (window.currentlyPlayingChapterParagraphs[chapterKey]) {
+                        window.currentlyPlayingChapterParagraphs[chapterKey].currentFileIndex = currentFileIndex;
+                    }
+                    
+                    audio.onended = () => {
+                        currentFileIndex++;
+                        if (currentFileIndex < paragraphFiles.length) {
+                            playNext();
+                        } else {
+                            // Finished playing all paragraphs
+                            paragraphFiles.forEach(fileInfo => {
+                                if (fileInfo.button) {
+                                    fileInfo.button.textContent = '▶ Play';
+                                }
+                            });
+                            delete window.currentlyPlayingChapterParagraphs[chapterKey];
+                            showStatus(`Finished playing all ${paragraphFiles.length} paragraph(s)`, 'success');
+                        }
+                    };
+                    
+                    audio.onerror = (error) => {
+                        // Skip to next file on error
+                        console.error(`Error playing ${fileInfo.filename}:`, error);
+                        currentFileIndex++;
+                        if (currentFileIndex < paragraphFiles.length) {
+                            playNext();
+                        } else {
+                            paragraphFiles.forEach(fileInfo => {
+                                if (fileInfo.button) {
+                                    fileInfo.button.textContent = '▶ Play';
+                                }
+                            });
+                            delete window.currentlyPlayingChapterParagraphs[chapterKey];
+                            showStatus('Finished playing available paragraphs', 'info');
+                        }
+                    };
+                    
+                    audio.play();
+                }
+            };
+            
+            playNext();
         }
 
         // Concatenate all paragraph audio files for a chapter

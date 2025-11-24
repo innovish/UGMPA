@@ -692,11 +692,15 @@ def generate_endpoint():
 def generate_paragraphs_endpoint():
     """Route handler for generating TTS audio paragraph by paragraph."""
     try:
-        paragraphs = request.form.getlist('paragraphs[]')
+        paragraphs = request.form.getlist('paragraphs')
         chapter_title = request.form.get('chapter_title', '')
         prompt = request.form.get('prompt', '')
         voice1 = request.form.get('voice1', 'Puck')
         voice2 = request.form.get('voice2', 'Zephyr')
+        
+        print(f"Received {len(paragraphs)} paragraph(s) for chapter: {chapter_title}")
+        for i, para in enumerate(paragraphs, 1):
+            print(f"  Paragraph {i}: {para[:100]}...")
         
         if not paragraphs:
             return jsonify({'error': 'No paragraphs provided'}), 400
