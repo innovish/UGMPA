@@ -10,6 +10,15 @@ from google.genai import types
 import tempfile
 import io
 import shutil
+# Try to import audioop-lts first (needed for Python 3.13+)
+# audioop-lts provides the audioop module that pydub needs
+try:
+    import audioop
+    print("✓ audioop module available (audioop-lts or built-in)")
+except ImportError:
+    print("⚠ audioop not available (may need 'pip install audioop-lts' for Python 3.13+)")
+
+# Now try to import pydub
 try:
     from pydub import AudioSegment
     PYDUB_AVAILABLE = True
@@ -257,7 +266,7 @@ def parse_chapters(text: str) -> list[dict]:
 def parse_paragraphs(text: str) -> list[str]:
     """
     Parse text into paragraphs.
-    Paragraphs are separated by double newlines or significant whitespace.
+    Paragraphs are separated by one or more blank rows (empty lines).
     
     Args:
         text: The text content to parse
@@ -268,28 +277,18 @@ def parse_paragraphs(text: str) -> list[str]:
     if not text:
         return []
     
-    # Split by double newlines first (common paragraph separator)
-    paragraphs = re.split(r'\n\s*\n', text)
+    # Split by blank rows (empty lines) - one or more consecutive newlines
+    # This matches patterns like \n\n, \r\n\r\n, etc. that create blank lines
+    # but not just \r\r alone (which would be part of a line, not a blank row)
+    # \r?\n handles both Unix (\n) and Windows (\r\n) line endings
+    paragraphs = re.split(r'\r?\n\s*\r?\n+', text)
     
-    # Further split by single newlines if paragraphs are too long
-    # This handles cases where paragraphs are separated by single newlines
     result = []
     for para in paragraphs:
         para = para.strip()
         if not para:
             continue
-        
-        # If paragraph is very long and contains single newlines, 
-        # it might be multiple paragraphs separated by single newlines
-        if len(para) > 500 and '\n' in para:
-            # Split by single newlines and treat each as a paragraph
-            sub_paras = re.split(r'\n+', para)
-            for sub_para in sub_paras:
-                sub_para = sub_para.strip()
-                if sub_para:
-                    result.append(sub_para)
-        else:
-            result.append(para)
+        result.append(para)
     
     return result if result else [text.strip()]
 
@@ -603,6 +602,33 @@ def serve_audio(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/check-pydub', methods=['GET'])
+def check_pydub():
+    """Check if pydub is available for volume normalization."""
+    # Try to actually use pydub to verify it works
+    pydub_working = False
+    test_error = None
+    
+    if PYDUB_AVAILABLE:
+        try:
+            # Try to create a simple audio segment to verify pydub works
+            test_audio = AudioSegment.silent(duration=100)
+            test_volume = test_audio.dBFS
+            pydub_working = True
+        except Exception as e:
+            test_error = str(e)
+            pydub_working = False
+    
+    return jsonify({
+        'available': PYDUB_AVAILABLE,
+        'working': pydub_working,
+        'normalization_supported': pydub_working,
+        'test_error': test_error,
+        'message': 'pydub is available and working' if pydub_working else 
+                   ('pydub is imported but not working: ' + str(test_error) if test_error else 
+                    'pydub is not available - please restart Flask app after installing pydub')
+    })
+
 @app.route('/generate', methods=['POST'])
 def generate_endpoint():
     """Route handler for generating TTS audio - only called when Generate button is clicked."""
@@ -715,8 +741,15 @@ def generate_paragraphs_endpoint():
         for index, paragraph in enumerate(paragraphs, start=1):
             if not paragraph.strip():
                 continue
+            
+            # Add 30-second pause between paragraphs (except before the first one)
+            if index > 1:
+                print(f"Waiting 30 seconds before generating paragraph {index} to prevent quota limits...")
+                time.sleep(30)
+                print(f"Resuming generation for paragraph {index}...")
                 
             try:
+                print(f"Generating paragraph {index}/{len(paragraphs)}...")
                 audio_data, extension = generate_tts(paragraph, prompt, voice1, voice2)
                 
                 # Save to outputs folder with sequence number
@@ -727,9 +760,10 @@ def generate_paragraphs_endpoint():
                     f.write(audio_data)
                 
                 saved_files.append(output_filename)
+                print(f"✓ Successfully generated paragraph {index}: {output_filename}")
             except Exception as e:
                 # Continue with next paragraph if one fails
-                print(f"Error generating paragraph {index}: {e}")
+                print(f"✗ Error generating paragraph {index}: {e}")
                 continue
         
         if not saved_files:
@@ -771,6 +805,20 @@ def concatenate_audio():
         # Try to use pydub first (if available and ffmpeg is installed)
         if PYDUB_AVAILABLE:
             try:
+                # Calculate benchmark volume from first paragraph (第一章 失踪的航班_001.wav)
+                benchmark_filename = "第一章 失踪的航班_001.wav"
+                benchmark_path = os.path.join(OUTPUT_DIR, benchmark_filename)
+                benchmark_volume = None
+                
+                if os.path.exists(benchmark_path):
+                    try:
+                        benchmark_audio = AudioSegment.from_wav(benchmark_path)
+                        benchmark_volume = benchmark_audio.dBFS
+                        print(f"✓ Benchmark volume calculated from {benchmark_filename}: {benchmark_volume:.2f} dBFS")
+                    except Exception as e:
+                        print(f"Warning: Could not calculate benchmark volume from {benchmark_filename}: {e}")
+                        print("Will use first paragraph of current chapter as benchmark instead")
+                
                 combined_audio = None
                 pause_ms = int(pause_seconds * 1000)
                 
@@ -780,7 +828,33 @@ def concatenate_audio():
                         print(f"Warning: File not found: {file_path}, skipping...")
                         continue
                     
-                    audio = AudioSegment.from_wav(file_path)
+                    try:
+                        audio = AudioSegment.from_wav(file_path)
+                    except Exception as e:
+                        print(f"✗ Error loading {filename} with pydub: {e}")
+                        raise
+                    
+                    # Normalize volume to match benchmark
+                    if benchmark_volume is not None:
+                        try:
+                            current_volume = audio.dBFS
+                            if current_volume != float('-inf'):  # Check if audio is not silent
+                                volume_diff = benchmark_volume - current_volume
+                                audio = audio.apply_gain(volume_diff)
+                                print(f"  ✓ Adjusted volume for {filename}: {current_volume:.2f} dBFS -> {audio.dBFS:.2f} dBFS (target: {benchmark_volume:.2f} dBFS)")
+                            else:
+                                print(f"  ⚠ Warning: {filename} is silent, skipping volume adjustment")
+                        except Exception as e:
+                            print(f"  ✗ Error normalizing volume for {filename}: {e}")
+                            # Continue without normalization for this file
+                    elif i == 0:
+                        # Use first paragraph as benchmark if benchmark file doesn't exist
+                        try:
+                            benchmark_volume = audio.dBFS
+                            print(f"✓ Using first paragraph ({filename}) as benchmark: {benchmark_volume:.2f} dBFS")
+                        except Exception as e:
+                            print(f"✗ Error calculating benchmark volume from {filename}: {e}")
+                            benchmark_volume = None
                     
                     if combined_audio is None:
                         combined_audio = audio
@@ -794,16 +868,21 @@ def concatenate_audio():
                     return jsonify({'error': 'No valid audio files found to concatenate'}), 400
                 
                 combined_audio.export(output_path, format="wav")
-                print(f"Concatenated audio saved using pydub: {output_path}")
+                print(f"✓ Concatenated audio saved using pydub (with volume normalization): {output_path}")
                 
                 return jsonify({
                     'success': True,
-                    'message': f'Concatenated {len(audio_files)} audio file(s) with {pause_seconds}s pauses',
+                    'message': f'Concatenated {len(audio_files)} audio file(s) with {pause_seconds}s pauses (volume normalized)',
                     'filename': output_filename,
-                    'file_path': output_path
+                    'file_path': output_path,
+                    'normalized': True
                 })
             except Exception as e:
-                print(f"pydub concatenation failed: {e}, falling back to pure Python method")
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"✗ pydub concatenation failed: {e}")
+                print(f"Error details:\n{error_details}")
+                print("Falling back to pure Python method (without volume normalization)")
         
         # Fall back to pure Python concatenation
         file_paths = []
@@ -816,13 +895,14 @@ def concatenate_audio():
             return jsonify({'error': 'No valid audio files found to concatenate'}), 400
         
         concatenate_wav_files_pure_python(file_paths, output_path, pause_seconds)
-        print(f"Concatenated audio saved using pure Python: {output_path}")
+        print(f"⚠ Concatenated audio saved using pure Python (NO volume normalization): {output_path}")
         
         return jsonify({
             'success': True,
-            'message': f'Concatenated {len(file_paths)} audio file(s) with {pause_seconds}s pauses',
+            'message': f'Concatenated {len(file_paths)} audio file(s) with {pause_seconds}s pauses (volume NOT normalized - pydub unavailable)',
             'filename': output_filename,
-            'file_path': output_path
+            'file_path': output_path,
+            'normalized': False
         })
         
     except Exception as e:

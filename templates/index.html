@@ -330,6 +330,16 @@
             transform: none;
         }
 
+        .concatenate-button.normalized {
+            border: 3px solid #48bb78;
+            box-shadow: 0 2px 8px rgba(159, 122, 234, 0.3), 0 0 0 2px rgba(72, 187, 120, 0.3);
+        }
+
+        .concatenate-button.not-normalized {
+            border: 3px solid #ecc94b;
+            box-shadow: 0 2px 8px rgba(159, 122, 234, 0.3), 0 0 0 2px rgba(236, 201, 75, 0.3);
+        }
+
         .progress-container {
             margin-top: 10px;
             padding: 10px;
@@ -1031,10 +1041,34 @@
             }, 5000);
         }
 
+        // Check pydub availability for volume normalization
+        let pydubAvailable = null; // null means not checked yet
+        async function checkPydubAvailability() {
+            try {
+                const response = await fetch('/check-pydub');
+                const data = await response.json();
+                pydubAvailable = data.available || false;
+                console.log(`pydub available: ${pydubAvailable} (normalization: ${pydubAvailable ? 'enabled' : 'disabled'})`);
+                return pydubAvailable;
+            } catch (error) {
+                console.error('Error checking pydub availability:', error);
+                pydubAvailable = false;
+                return false;
+            }
+        }
+
+        // Check pydub availability on page load
+        checkPydubAvailability();
+
         async function displayChapters(chapters) {
             const container = document.getElementById('chaptersContainer');
             const chaptersList = document.getElementById('chaptersList');
             const chaptersHeader = document.getElementById('chaptersHeader');
+            
+            // Check pydub availability if not already checked
+            if (pydubAvailable === null) {
+                await checkPydubAvailability();
+            }
             
             // Clear existing header content
             chaptersHeader.innerHTML = '';
@@ -1178,6 +1212,13 @@
                 
                 const concatenateBtn = document.createElement('button');
                 concatenateBtn.className = 'concatenate-button';
+                // Add frame class based on pydub availability
+                // Default to not-normalized if check hasn't completed yet
+                if (pydubAvailable === true) {
+                    concatenateBtn.classList.add('normalized');
+                } else {
+                    concatenateBtn.classList.add('not-normalized');
+                }
                 concatenateBtn.type = 'button';
                 concatenateBtn.textContent = '🔗 Concatenate';
                 concatenateBtn.setAttribute('data-chapter-index', index);
@@ -1748,9 +1789,13 @@
             const chapter = chapters[chapterIndex];
             const totalParagraphs = chapter.paragraphs ? chapter.paragraphs.length : 1;
             
-            // Collect all paragraph buttons and their filenames (skip paragraphs without audio)
+            // Parse paragraphIndex to integer
+            const startParagraphIndex = parseInt(paragraphIndex, 10);
+            
+            // Collect all paragraph buttons and their filenames starting from the clicked paragraph
+            // (skip paragraphs without audio)
             const paragraphFiles = [];
-            for (let i = 0; i < totalParagraphs; i++) {
+            for (let i = startParagraphIndex; i < totalParagraphs; i++) {
                 const paraBtn = document.querySelector(`button.play-paragraph-button[data-chapter-index="${chapterIndex}"][data-paragraph-index="${i}"]`);
                 if (paraBtn) {
                     const paraFilename = paraBtn.getAttribute('data-filename');
@@ -1765,7 +1810,7 @@
             }
             
             if (paragraphFiles.length === 0) {
-                showStatus('No audio files available for any paragraph in this chapter', 'error');
+                showStatus('No audio files available for any paragraph starting from this paragraph', 'error');
                 return;
             }
             
@@ -1776,7 +1821,7 @@
                 }
             });
             
-            // Start playing all paragraphs sequentially
+            // Start playing all paragraphs sequentially from the clicked paragraph
             let currentFileIndex = 0;
             const audio = new Audio();
             
